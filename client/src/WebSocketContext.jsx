@@ -1,39 +1,41 @@
-import React, { createContext, useEffect, useState, useContext } from 'react';
+import React, { createContext, useEffect, useState, useContext } from "react";
 
 const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
   const [ws, setWs] = useState(null);
   const [files, setFiles] = useState([]); // State to store the list of files
-  const [messageType, setMessageType] = useState(''); // Track the latest message type for debugging or logic
-  const wsUrl = import.meta.env.VITE_WEBSOCKET_URL
+  const [messageType, setMessageType] = useState(""); // Track the latest message type for debugging or logic
+  const wsUrl = import.meta.env.VITE_WEBSOCKET_URL1;
 
   useEffect(() => {
     const webSocket = new WebSocket(wsUrl); // Replace with your WebSocket server URL
 
     webSocket.onopen = () => {
-      console.log('WebSocket connection established');
+      console.log("WebSocket connection established");
     };
 
     webSocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('Received message:', data);
+      console.log("Received message:", data);
 
       // Process the message based on its type
       switch (data.type) {
-        case 'file_list':
-          console.log('List of files received:', data.files);
+        case "file_list":
+          console.log("List of files received:", data.files);
           setFiles(data.files); // Update the file list
           break;
-        case 'create_file':
+        case "create_file":
           console.log(`File created: ${data.payload.name}`);
-          
-          setFiles((prevFiles) => [...prevFiles, {name : data.payload.name}]); // Add the new file to the list
+
+          setFiles((prevFiles) => [...prevFiles, { name: data.payload.name }]); // Add the new file to the list
           console.log(files);
           break;
-        case 'delete_file':
+        case "delete_file":
           console.log(`File deleted: ${data.payload.name}`);
-          setFiles((prevFiles) => prevFiles.filter((file) => file.name !== data.payload.name)); // Remove the file from the list
+          setFiles((prevFiles) =>
+            prevFiles.filter((file) => file.name !== data.payload.name),
+          ); // Remove the file from the list
           break;
         default:
           console.error(`Unknown message type: ${data.type}`);
@@ -45,12 +47,12 @@ export const WebSocketProvider = ({ children }) => {
     };
 
     webSocket.onclose = () => {
-      console.log('WebSocket connection closed');
+      console.log("WebSocket connection closed");
       setWs(null); // Set to null when closed
     };
 
     webSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error("WebSocket error:", error);
     };
 
     setWs(webSocket);
