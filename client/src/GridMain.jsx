@@ -42,7 +42,7 @@ export default function GridMain() {
         <Versions handleFileSelect={handleFileSelect}/>
       </Grid2>
       <Grid2 size={6}>
-        <NavTop />
+        <NavTop selectedFile={selectedFile} />
         {selectedFile && (<Core  roomId={roomId}  selectedFile={selectedFile}/>)}
       </Grid2>
       <Grid2 size="grow">

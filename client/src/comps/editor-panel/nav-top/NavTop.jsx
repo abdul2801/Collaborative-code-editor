@@ -1,10 +1,10 @@
 import React from "react";
 import Slide from "./Slide";
 
-function NavTop() {
+function NavTop({selectedFile}) {
     return (
         <div>
-          <Slide />
+          <Slide selectedFile={selectedFile} />
         </div>
     );
 }

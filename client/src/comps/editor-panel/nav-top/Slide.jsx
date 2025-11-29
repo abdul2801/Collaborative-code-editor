@@ -4,7 +4,7 @@ import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
 import { ArrowBackIos, ArrowForwardIos } from "@mui/icons-material";
 
-export default function Slide() {
+export default function Slide({selectedFile}) {
   const [value, setValue] = React.useState(0);
 
   const handleChange = (event, newValue) => {
@@ -36,13 +36,8 @@ export default function Slide() {
           },
         }}
       >
-        <Tab label="Item One" />
-        <Tab label="Item Two" />
-        <Tab label="Item Three" />
-        <Tab label="Item Four" />
-        <Tab label="Item Five" />
-        <Tab label="Item Six" />
-        <Tab label="Item Seven" />
+        {selectedFile && <Tab label={selectedFile} />}
+        
       </Tabs>
     </Box>
   );
