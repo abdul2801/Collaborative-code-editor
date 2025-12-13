@@ -4,9 +4,8 @@ import { Divider, Typography } from '@mui/material';
 import Console from './Console';
 import Hosting from './Hosting';
 
-export default function () {
+export default function Main({consoleText}) {
     const [value, setValue] = React.useState(0);
-    let consoleText = 'Welcome to your terminal';
     let ins = "Instructions Texdsadasdt";
   
     return (

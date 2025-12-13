@@ -1,143 +1,106 @@
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle
+} from 'react';
 import Editor from '@monaco-editor/react';
-import blackboardTheme from 'monaco-themes/themes/Blackboard.json'; 
+import blackboardTheme from 'monaco-themes/themes/Blackboard.json';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import axios from 'axios';  
+import axios from 'axios';
 
-// env
 const apiUrl = import.meta.env.VITE_SERVER_URL;
 const wsUrl = import.meta.env.VITE_WEBSOCKET_URL;
-export default function Core({ roomId, selectedFile }) {
-  const [ydoc,setYdoc] = useState(new Y.Doc()); 
+
+const Core = forwardRef(({ roomId, selectedFile }, ref) => {
   const [editor, setEditor] = useState(null);
-  const [provider, setProvider] = useState(null);
-  const [binding, setBinding] = useState(null);
-  const initialFetchDone = useRef(false);
+  const providerRef = useRef(null);
+  const ydocRef = useRef(null);
+  const initialBootstrapDone = useRef(false);
 
-  function handleEditorMount(_, editor) {
+  function handleEditorMount(_, monaco) {
     setEditor(_);
-    editor.editor.defineTheme('blackboard', blackboardTheme);
-    editor.editor.setTheme('blackboard'); 
+    monaco.editor.defineTheme('blackboard', blackboardTheme);
+    monaco.editor.setTheme('blackboard');
   }
+
+  // expose API to parent
+  useImperativeHandle(ref, () => ({
+    getCode() {
+      return ydocRef.current
+        ?.getText('monaco')
+        .toString() || '';
+    }
+  }));
+
   useEffect(() => {
-    setYdoc(new Y.Doc());
-  }, [roomId, selectedFile]);
+    const ydoc = new Y.Doc();
+    ydocRef.current = ydoc;
 
-  const getConnectedClients = (provider) => {
-    if (!provider) return 0;
-    // Filter out our own client ID
-    const states = Array.from(provider.awareness.getStates().values());
-    return states.length;
-  };
+    const room = `${roomId}-${selectedFile}`;
+    const provider = new WebsocketProvider(wsUrl, room, ydoc);
+    providerRef.current = provider;
 
-  const fetchFileContent = async (websocketProvider) => {
-    try {
-      const monacoText = ydoc.getText('monaco');
-      const connectedClients = getConnectedClients(websocketProvider);
-      
-      // If there are no clients connected, fetch from the server
-      if (monacoText.toString().length === 0 && connectedClients <= 1) {
-        console.log('No content and no other clients, fetching from server...');
-        const response = await axios.post(`${apiUrl}/file/${selectedFile}`, {
-          roomId: roomId
-        });
-  
+    const bootstrapIfEmpty = async () => {
+      const ytext = ydoc.getText('monaco');
+      if (ytext.length > 0) return;
+
+      const res = await axios.post(
+        `${apiUrl}/file/${selectedFile}`,
+        { roomId }
+      );
+
+      if (res.data?.content) {
         ydoc.transact(() => {
-          monacoText.insert(0, response.data.content);
-        });
-      } else if (connectedClients > 1) {
-        console.log('Other clients connected, synchronizing content.');
-        // insertt
-
-      } else {
-        console.log('Content present, skipping fetch.');
-      }
-    } catch (error) {
-      console.error("Error fetching file content:", error);
-      if (ydoc.getText('monaco').toString().length === 0) {
-        ydoc.transact(() => {
-          ydoc.getText('monaco').insert(0, '// Error loading file');
+          ytext.insert(0, res.data.content);
         });
       }
-    }
-  };
-     
-  useEffect(() => {
-    // Disconnect and reset the previous provider if any
-    if (provider) {
-      provider.disconnect();
-      setProvider(null);
-      setBinding(null);
-      ydoc.getText('monaco').delete(0, ydoc.getText('monaco').length);
-      initialFetchDone.current = false;
-    }
-  
-    const room_id = `${roomId}-${selectedFile}`;
-    const websocketProvider = new WebsocketProvider(wsUrl, room_id, ydoc);
-    setProvider(websocketProvider);
-  
-    // Add a small delay to allow awareness to sync
-    let syncTimeout;
-    
-    websocketProvider.on('sync', (isSynced) => {
-      if (isSynced && !initialFetchDone.current) {
-        if (syncTimeout) clearTimeout(syncTimeout);
-        
-        syncTimeout = setTimeout(() => {
-           if (getConnectedClients(websocketProvider) <= 1) {
-               ydoc.getText('monaco').delete(0, ydoc.getText('monaco').length);
-          }
-          fetchFileContent(websocketProvider);
-          initialFetchDone.current = true;
-        }, 300);
+    };
+
+    provider.once('sync', async () => {
+      if (!initialBootstrapDone.current) {
+        await bootstrapIfEmpty();
+        initialBootstrapDone.current = true;
       }
     });
-  
+
     return () => {
-      // Clear the timeout and properly disconnect the provider
-      if (syncTimeout) clearTimeout(syncTimeout);
-      if (websocketProvider.wsconnected) {
-        websocketProvider.disconnect();
-      }
+      initialBootstrapDone.current = false;
+      provider.destroy();
       ydoc.destroy();
     };
-  }, [roomId, selectedFile, ydoc]);
-    
-  useEffect(() => {
-    if (provider === null || editor === null) return;
+  }, [roomId, selectedFile]);
 
-    const monacoBinding = new MonacoBinding(
-      ydoc.getText('monaco'),
+  useEffect(() => {
+    if (!editor || !ydocRef.current || !providerRef.current) return;
+    const model = editor.getModel();
+
+    const binding = new MonacoBinding(
+      ydocRef.current.getText('monaco'),
       editor.getModel(),
       new Set([editor]),
-      provider.awareness
+      providerRef.current.awareness
     );
-    setBinding(monacoBinding);
 
-    return () => {
-      monacoBinding.destroy();
-    };
-  }, [provider,selectedFile, editor, ydoc]);
+   return () => {
+    // Monaco may already be disposed because of key change
+    if (!model.isDisposed()) {
+      binding.destroy();
+    }
+  };
+  }, [editor]);
 
   return (
-    <div style={{ flexGrow: 1 }}>
-      <Editor  
-        height="94.52vh" 
-        defaultLanguage="javascript" 
-        onMount={handleEditorMount} 
-        options={{
-          minimap: { enabled: true },
-          scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-          scrollBeyondLastLine: false,
-          lineNumbers: 'on',
-          fontSize: 18,
-          fontWeight: 'bold',
-          wordWrap: 'on',
-          fontFamily: 'MonoLisa, Menlo, Monaco, Courier New , monospace'
-        }}
-      />
-    </div>
+    <Editor
+      key={`${roomId}-${selectedFile}`}
+      height="94.52vh"
+      defaultLanguage="javascript"
+      onMount={handleEditorMount}
+    />
   );
-}
+});
+
+export default Core;

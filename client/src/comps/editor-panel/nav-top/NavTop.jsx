@@ -1,10 +1,11 @@
 import React from "react";
 import Slide from "./Slide";
+import { Button } from "@mui/material";
 
-function NavTop({selectedFile}) {
+function NavTop({selectedFile , onRun , onSave}) {
     return (
         <div>
-          <Slide selectedFile={selectedFile} />
+          <Slide selectedFile={selectedFile} onRun={onRun} onSave={onSave} />
         </div>
     );
 }

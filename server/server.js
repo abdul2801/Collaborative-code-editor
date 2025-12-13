@@ -16,6 +16,12 @@ const PORT = 3000;
 const SECRET_KEY = "your_secret_key";
 const USERS_FILE = "./users.json";
 const BASE_DIR = "./codes";
+const Y = require("yjs");
+const { LeveldbPersistence } = require("y-leveldb");
+
+const yPersistence = new LeveldbPersistence("./dbDir");
+
+
 
 app.use(bodyParser.json());
 app.use(cors());
@@ -30,6 +36,28 @@ const getUsers = () => {
   const data = fs.readFileSync(USERS_FILE, "utf8");
   return JSON.parse(data);
 };
+async function saveYDocToFile(roomId, username, fileName) {
+  try {
+    // load Yjs document from LevelDB
+    const ydoc = await yPersistence.getYDoc(roomId);
+
+    // we assume your Yjs editor stores content in ydoc.getText("content")
+    const content = ydoc.getText("content").toString();
+
+    const outputDir = path.join(BASE_DIR, username);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const filePath = path.join(outputDir, fileName);
+
+    fs.writeFileSync(filePath, content, "utf8");
+
+    console.log(`Saved Yjs doc for room ${roomId} → ${filePath}`);
+  } catch (error) {
+    console.error("Error saving Yjs doc:", error);
+  }
+}
 
 // Save users to the file
 const saveUsers = (users) => {
@@ -176,6 +204,29 @@ const broadcastToRoom = (roomId, message) => {
   }
 };
 
+
+
+async function saveYDocToFile(roomId) {
+  try {
+    const host = rooms[roomId].host;
+    if (!host) return;
+
+    const files = get_user_files(host)
+    // console.log(files , "files")
+    const ydoc = await yPersistence.getYDoc(`${roomId}-${files[0].name}`);
+    console.log(ydoc)
+    const text = ydoc.getText('monaco').toString();
+    console.log(text , "text bro")
+  } catch (error) {
+    console.error("Autosave error:", error);
+  }
+}
+setInterval(() => {
+  for (const roomId in rooms) {
+    saveYDocToFile(roomId);
+  }
+}, 5000);
+
 // Create a new file
 app.post("/create-file", authenticateToken, (req, res) => {
   const { fileName, content, roomId } = req.body;
@@ -302,3 +353,5 @@ app.delete("/file/:fileName", authenticateToken, (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+
