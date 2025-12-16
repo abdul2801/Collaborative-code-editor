@@ -349,7 +349,9 @@ app.delete("/file/:fileName", authenticateToken, (req, res) => {
 
   res.json({ message: "File deleted successfully" });
 });
-
+app.get('/', (req, res) => {
+  res.send('hello');
+});
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
