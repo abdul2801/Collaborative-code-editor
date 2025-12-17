@@ -7,8 +7,8 @@ const apiUrl = import.meta.env.VITE_SERVER_URL;
 
 const Auth = () => {
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin');
   const [error, setError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
